@@ -23,22 +23,22 @@ class Gates(Enum):
 
 # https://github.com/ehw-fit/ariths-gen/tree/main
 ARITHS_GEN_MAP = {
-    Gates.INPUT: 0,
-    Gates.NOT: 1,
-    Gates.AND: 2,
-    Gates.OR: 3,
-    Gates.XOR: 4,
-    Gates.NAND: 5,
-    Gates.NOR: 6,
-    Gates.XNOR: 7,
-    Gates.TRUE: 8,
-    Gates.FALSE: 9
+    0: Gates.INPUT,
+    1: Gates.NOT,
+    2: Gates.AND,
+    3: Gates.OR,
+    4: Gates.XOR,
+    5: Gates.NAND,
+    6: Gates.NOR,
+    7: Gates.XNOR,
+    8: Gates.TRUE,
+    9: Gates.FALSE,
 }
 
 AIG_MAP = {
-    Gates.INPUT: 0,
-    Gates.AND: 1,
-    Gates.NOT: 2
+    0: Gates.INPUT,
+    1: Gates.AND,
+    2: Gates.NOT
 }
 
 # "x", "y" represent original inputs
@@ -113,18 +113,22 @@ class AIGTranslator:
         self.templates = self.preprocess_templates()
 
     def preprocess_templates(self):
+        aig_map_inv = {v: k for k, v in AIG_MAP.items()}
         templates = {}
         for gate, template in GATE_TEMPLATES.items():
-            nodes = torch.tensor([AIG_MAP[gate] for gate in template["nodes"]])
+            nodes = torch.tensor([aig_map_inv[gate] for gate in template["nodes"]])
             edges = torch.tensor(template["edges"])
             templates[gate] = (nodes, edges)
         return templates
 
     def translate(self, g, gates_map):
         device = g.device
+
+        gates_map_inv = {v: k for k, v in gates_map.items()}
+
         gate_sizes = torch.ones_like(g.nodes)
         for gate, (node_template, _) in self.templates.items():
-            gate_sizes[g.nodes == gates_map[gate]] = len(node_template)
+            gate_sizes[g.nodes == gates_map_inv[gate]] = len(node_template)
 
         # relative shift is new size - original size
         rel_shift = gate_sizes - 1
@@ -139,7 +143,7 @@ class AIGTranslator:
         org_idx = torch.arange(g.n_nodes, device=device)
         new_idx = org_idx + abs_start_shift
 
-        new_nodes = torch.zeros(int(g.n_nodes + size_diff), device=device)
+        new_nodes = torch.zeros(int(g.n_nodes + size_diff), device=device, dtype=torch.int)
         new_edges = []
 
         for o, n in zip(org_idx, new_idx):
@@ -148,7 +152,7 @@ class AIGTranslator:
                 continue
 
             try:
-                nodes_template, edges_template = GATE_TEMPLATES[gates_map[g.nodes[o]]]
+                nodes_template, edges_template = self.templates[gates_map[g.nodes[o].item()]]
             except KeyError:
                 raise ValueError(f"Gate {g.nodes[o]} not supported")
 
@@ -156,18 +160,18 @@ class AIGTranslator:
             old_y = g.edges[g.mask_edges_node_in(o) & g.mask_edges_y()][0][0]
             new_x = old_x + abs_end_shift[old_x]
             new_y = old_y + abs_end_shift[old_y]
-            new_nodes[n:gate_sizes[o]] = nodes_template
+            new_nodes[n:n+gate_sizes[o]] = nodes_template
 
             gate_edges = copy.deepcopy(edges_template)
             # relative indices to absolute
-            gate_edges[gate_edges > 0] = gate_edges[gate_edges > 0] + n
+            gate_edges[:, :2][gate_edges[:, :2] >= 0] = gate_edges[:, :2][gate_edges[:, :2] >= 0] + n
             # fill in input connections
             gate_edges[gate_edges == X_INPUT] = new_x
             gate_edges[gate_edges == Y_INPUT] = new_y
 
             new_edges.extend(gate_edges)
 
-        new_edges = torch.cat(new_edges, dim=0)
+        new_edges = torch.stack(new_edges, dim=0)
         new_outputs = g.outputs + abs_end_shift[g.outputs]
         return Graph(
             new_nodes,

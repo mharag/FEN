@@ -2,7 +2,7 @@ import torch
 
 
 def test_forward_index(OR_graph):
-    assert OR_graph.forward_index == torch.tensor([0, 0, 1, 1, 2, 3])
+    assert torch.all(OR_graph.forward_index == torch.tensor([0, 0, 1, 1, 2, 3]))
 
 
 def test_adjacency_matrix(OR_graph):
@@ -14,6 +14,7 @@ def test_adjacency_matrix(OR_graph):
         [0, 0, 0, 0, 0, 3],
         [0, 0, 0, 0, 0, 0]
     ]))
+
 
 def test_subgraph(OR_graph):
     subgraph = OR_graph.subgraph(3)

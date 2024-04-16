@@ -1,7 +1,4 @@
 import torch
-from env import device
-import re
-import copy
 
 class Graph:
     def __init__(
@@ -36,7 +33,7 @@ class Graph:
     @property
     def adjacency_matrix(self):
         if self._adjacency_matrix is None:
-            adj = torch.zeros((len(self.nodes), len(self.nodes)), device=device)
+            adj = torch.zeros((len(self.nodes), len(self.nodes)), device=self.device)
             for (parent, child, idx) in self.edges:
                 adj[parent, child] += idx+1
             self._adjacency_matrix = adj
@@ -45,10 +42,10 @@ class Graph:
     @property
     def forward_index(self):
         if self._forward_index is None:
-            forward = torch.zeros_like(self.nodes, device=device) - 1
+            forward = torch.zeros_like(self.nodes, device=self.device) - 1
             forward[self.nodes == 0] = 0  # inputs
 
-            last_unknown = torch.zeros_like(self.nodes, device=device).to(torch.bool)
+            last_unknown = torch.zeros_like(self.nodes, device=self.device).to(torch.bool)
             unknown = forward == -1
             while torch.max(unknown) and not torch.equal(unknown, last_unknown):
                 adj = self.adjacency_matrix.clone()
@@ -94,8 +91,8 @@ class Graph:
         return self.nodes == 0
 
     def mask_nodes_output(self):
-        outputs = torch.zeros(self.n_nodes, device=device)
-        outputs[self.outputs] = 1
+        outputs = torch.zeros(self.n_nodes, device=self.device, dtype=torch.bool)
+        outputs[self.outputs] = True
         return outputs
 
     def subgraph(self, size):
