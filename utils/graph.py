@@ -5,14 +5,16 @@ class Graph:
         self,
         nodes,
         edges,
-        outputs
+        outputs,
+        name=None
     ):
         self.nodes = nodes
         self.edges = edges
         self.outputs = outputs
+        self.name = name
 
         self.n_nodes = len(nodes)
-        self.n_inputs = torch.sum(nodes == 0)
+        self.n_inputs = torch.sum(nodes == 0).item()
         self.n_outputs = len(outputs)
 
         self.device = nodes.device
@@ -102,3 +104,25 @@ class Graph:
             self.outputs[self.outputs < size]
 
         )
+
+    def set_outputs(self, outputs):
+        self.outputs = outputs
+        self.n_outputs = len(outputs)
+
+    def to(self, device):
+        self.nodes = self.nodes.to(device)
+        self.edges = self.edges.to(device)
+        self.outputs = self.outputs.to(device)
+        self.device = device
+
+        if self._adjacency_matrix is not None:
+            self._adjacency_matrix = self._adjacency_matrix.to(device)
+        if self._forward_index is not None:
+            self._forward_index = self._forward_index.to(device)
+
+        if self._mask_edges_x is not None:
+            self._mask_edges_x = self._mask_edges_x.to(device)
+        if self._mask_edges_y is not None:
+            self._mask_edges_y = self._mask_edges_y.to(device)
+
+        return self

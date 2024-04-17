@@ -13,10 +13,9 @@ class Simulator:
         assert torch.max(used_gates) <= 2, "Only AIGs are supported"
 
     def _generate_random_inputs(self, n_inputs):
-        inputs = torch.randint(0, 2, (n_inputs, self.n_steps), dtype=self.dtype, device=self.device)
         if self.include_constants:
-            inputs[0] = torch.zeros(n_inputs, self.n_steps, device=self.device, dtype=self.dtype)
-            inputs[1] = torch.ones(n_inputs, self.n_steps, device=self.device, dtype=self.dtype)
+            n_inputs = n_inputs - 2
+        inputs = torch.randint(0, 2, (n_inputs, self.n_steps), dtype=self.dtype, device=self.device)
         return inputs
 
     def evaluate(self, g, inputs, output_inner_nodes=False):
@@ -30,8 +29,8 @@ class Simulator:
 
         if self.include_constants:
             inputs = torch.cat((
-                torch.zeros(n_batch, device=self.device, dtype=self.dtype),
-                torch.ones(n_batch, device=self.device, dtype=self.dtype),
+                torch.zeros(1, n_batch, device=self.device, dtype=self.dtype),
+                torch.ones(1, n_batch, device=self.device, dtype=self.dtype),
                 inputs
             ), dim=0)
 

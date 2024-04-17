@@ -8,8 +8,9 @@ class CGPTranslator:
     If implicit
 
     """
-    def __init__(self, include_constants=False):
+    def __init__(self, include_constants=False, device=None):
         self.include_constants = include_constants
+        self.device = device
 
     def parse(self, raw_cgp):
         match = re.match(r"\{(.*)\}(.*)\(([\d,]*)\)", raw_cgp)
@@ -35,7 +36,7 @@ class CGPTranslator:
         for i, func in unsorted_nodes:
             nodes[i] = func
 
-        return Graph(nodes, torch.tensor(edges), torch.tensor(tail))
+        return Graph(nodes.to(self.device), torch.tensor(edges, device=self.device), torch.tensor(tail, device=self.device))
 
     def export(self, graph):
         c_in = graph.n_inputs - 2 if self.include_constants else graph.n_inputs

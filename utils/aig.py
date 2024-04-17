@@ -55,7 +55,7 @@ GATE_TEMPLATES = {
         "nodes": [Gates.NOT],
         "edges": [
             [X_INPUT, 0, 0],
-            [Y_INPUT, 0, 0]
+            [Y_INPUT, 0, 1]
         ]
     },
     Gates.OR: {

@@ -1,1 +1,4 @@
 torch
+progress
+pytest
+matplotlib
