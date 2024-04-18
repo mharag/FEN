@@ -13,6 +13,8 @@ class Graph:
         self.outputs = outputs
         self.name = name
 
+        assert self.edges[:, 1].sort()[0].equal(self.edges[:, 1]), "Edges must be sorted by child node index."
+
         self.n_nodes = len(nodes)
         self.n_inputs = torch.sum(nodes == 0).item()
         self.n_outputs = len(outputs)

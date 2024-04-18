@@ -2,3 +2,4 @@ torch
 progress
 pytest
 matplotlib
+torch_geometric

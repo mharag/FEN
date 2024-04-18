@@ -54,6 +54,7 @@ def save_dataset(samples, output, include_constants):
 
     cgp = CGPTranslator(include_constants=include_constants)
 
+    bar = Bar("Saving samples", max=len(samples))
     for i,samples in enumerate(samples):
         file_name = f"{i}.txt"
         path = os.path.join(output, file_name)
@@ -63,6 +64,8 @@ def save_dataset(samples, output, include_constants):
         f.write(f"{cgp.export(g2)}\n")
         f.write(f"{sim}\n")
         f.close()
+        bar.next()
+    bar.finish()
 
 
 def add_metadata(samples, output, files, steps):
@@ -175,8 +178,6 @@ def main():
             args.cross_circuit_pairs,
             device
         )
-
-
 
 
 if __name__ == '__main__':
