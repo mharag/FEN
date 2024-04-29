@@ -44,12 +44,22 @@ def generate_pairs(circuits, size, samples, cross_circuit_pairs):
     return pairs
 
 
-def save_dataset(samples, output, include_constants):
+def save_dataset(samples, output, include_constants, files, steps, n_samples):
+    stats = {
+        "_cmd": " ".join(sys.argv),
+        "_source": files,
+        "similarity": [],
+        "graph_size": [],
+        "input_width": [],
+        "longest_path": [],
+        "simulation_steps": steps,
+    }
+
     os.makedirs(output)
 
     cgp = CGPTranslator(include_constants=include_constants)
 
-    bar = Bar("Saving samples", max=len(samples))
+    bar = Bar("Processing samples", max=n_samples)
     for i,samples in enumerate(samples):
         file_name = f"{i}.txt"
         path = os.path.join(output, file_name)
@@ -60,30 +70,18 @@ def save_dataset(samples, output, include_constants):
         for sim in similarities:
             f.write(f"{sim[0]},{sim[1]},{sim[2]}\n")
         f.close()
-        bar.next()
-    bar.finish()
 
-
-def add_metadata(samples, output, files, steps):
-    path = os.path.join(output, "metadata.json")
-    stats = {
-        "_cmd": " ".join(sys.argv),
-        "_source": files,
-        "similarity": [],
-        "graph_size": [],
-        "input_width": [],
-        "longest_path": [],
-        "simulation_steps": steps,
-    }
-    for sample in samples:
-        g1, g2, sim = sample
-        stats["similarity"].append(sim)
+        stats["similarity"].append(similarities)
         stats["graph_size"].append(g1.n_nodes)
         stats["graph_size"].append(g2.n_nodes)
         stats["input_width"].append(g2.n_inputs)
         stats["longest_path"].append(g1.forward_index[-1].item())
         stats["longest_path"].append(g2.forward_index[-1].item())
 
+        bar.next()
+    bar.finish()
+
+    path = os.path.join(output, "metadata.json")
     with open(path, "w") as f:
         json.dump(stats, f, indent=4)
 
@@ -96,6 +94,23 @@ def augment_circuits(circuits, n_augmented, n_mutation):
             mutated_circuit = c.mutate(n_mutation)
             augmented_ciruits.append(mutated_circuit)
     return augmented_ciruits
+
+
+def process_pair(pairs, n_per_pair, steps, include_constants, device):
+    simulator = Simulator(steps, include_constants=include_constants, device=device)
+    aig_translator = AIGTranslator()
+    for i, pair in enumerate(pairs):
+        g1, g2 = pair
+        g1 = aig_translator.translate(g1, ARITHS_GEN_MAP).to(device)
+        g2 = aig_translator.translate(g2, ARITHS_GEN_MAP).to(device)
+        g1_nodes = torch.randint(g1.n_inputs, g1.n_nodes, (n_per_pair,), device=device)
+        g2_nodes = torch.randint(g2.n_inputs, g2.n_nodes, (n_per_pair,), device=device)
+        node_pairs = torch.stack((g1_nodes, g2_nodes), dim=-1)
+        sim = simulator.compare(g1, g2, node_pairs)
+        simmilarities = []
+        for i in range(n_per_pair):
+            simmilarities.append((g1_nodes[i].item(), g2_nodes[i].item(), sim[i].item()))
+        yield (g1, g2, simmilarities)
 
 
 def create_dataset(
@@ -116,8 +131,6 @@ def create_dataset(
         raise ValueError(f"Output directory {output} already exists")
 
     circuits = load_circuits(files, include_constants)
-    simulator = Simulator(steps, include_constants=include_constants, device=device)
-    aig_translator = AIGTranslator()
 
     print(f"Number of circuits before augmentation: {len(circuits)}")
     circuits = augment_circuits(circuits, n_augmented, n_mutation)
@@ -125,25 +138,9 @@ def create_dataset(
 
     pairs = generate_pairs(circuits, size, samples, cross_circuit_pairs)
 
-    bar = Bar("Processing pairs", max=samples)
-    samples = []
-    for i, pair in enumerate(pairs):
-        bar.next()
-        g1, g2 = pair
-        g1 = aig_translator.translate(g1, ARITHS_GEN_MAP).to(device)
-        g2 = aig_translator.translate(g2, ARITHS_GEN_MAP).to(device)
-        g1_nodes = torch.randint(g1.n_inputs, g1.n_nodes, (n_per_pair,), device=device)
-        g2_nodes = torch.randint(g2.n_inputs, g2.n_nodes, (n_per_pair,), device=device)
-        node_pairs = torch.stack((g1_nodes, g2_nodes), dim=-1)
-        sim = simulator.compare(g1, g2, node_pairs)
-        simmilarities = []
-        for i in range(n_per_pair):
-            simmilarities.append((g1_nodes[i].item(), g2_nodes[i].item(), sim[i].item()))
-        samples.append((g1, g2, simmilarities))
-    bar.finish()
+    samples = process_pair(pairs, n_per_pair, steps, include_constants, device)
 
-    save_dataset(samples, output, include_constants)
-    add_metadata(samples, output, files, steps)
+    save_dataset(samples, output, include_constants, files, steps, len(pairs))
 
 
 def main():
