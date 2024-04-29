@@ -58,11 +58,12 @@ def save_dataset(samples, output, include_constants):
     for i,samples in enumerate(samples):
         file_name = f"{i}.txt"
         path = os.path.join(output, file_name)
-        g1, g2, sim = samples
+        g1, g2, similarities = samples
         f = open(path, "w")
         f.write(f"{cgp.export(g1)}\n")
         f.write(f"{cgp.export(g2)}\n")
-        f.write(f"{sim}\n")
+        for sim in similarities:
+            f.write(f"{sim[0]},{sim[1]},{sim[2]}\n")
         f.close()
         bar.next()
     bar.finish()
@@ -100,6 +101,9 @@ def create_dataset(
     output: str,
     include_constants: bool,
     cross_circuit_pairs: bool,
+    n_per_pair: int,
+    n_augmented: int,
+    n_mutation: int,
     device: torch.device,
 ):
     print(f"Creating dataset {output}")
@@ -119,8 +123,14 @@ def create_dataset(
         g1, g2 = pair
         g1 = aig_translator.translate(g1, ARITHS_GEN_MAP).to(device)
         g2 = aig_translator.translate(g2, ARITHS_GEN_MAP).to(device)
-        sim = simulator.compare(g1, g2)
-        samples.append((g1, g2, sim))
+        g1_nodes = torch.randint(g1.n_inputs, g1.n_nodes, (n_per_pair,), device=device)
+        g2_nodes = torch.randint(g2.n_inputs, g2.n_nodes, (n_per_pair,), device=device)
+        node_pairs = torch.stack((g1_nodes, g2_nodes), dim=-1)
+        sim = simulator.compare(g1, g2, node_pairs)
+        simmilarities = []
+        for i in range(n_per_pair):
+            simmilarities.append((g1_nodes[i].item(), g2_nodes[i].item(), sim[i].item()))
+        samples.append((g1, g2, simmilarities))
     bar.finish()
 
     save_dataset(samples, output, include_constants)
@@ -138,7 +148,10 @@ def main():
     arg.add_argument("--include_constants", type=bool, default=False)
     arg.add_argument("--cross_circuit_pairs", type=bool, default=False)
     arg.add_argument("--val_filter", type=str, default=False)
-    arg.add_argument("--use_cuda", type=bool, default=True)
+    arg.add_argument("--use_cuda", type=bool, default=False)
+    arg.add_argument("--n_per_pair", type=int)
+    arg.add_argument("--n_augmented", type=int, default=0)
+    arg.add_argument("--n_mutation", type=int, default=0)
     args = arg.parse_args()
 
     if not os.path.exists(args.dataset):
@@ -156,7 +169,6 @@ def main():
     print(f"Files selected for validation: {len(val_files)}")
 
     device = torch.device("cuda" if args.use_cuda and torch.cuda.is_available() else "cpu")
-
     create_dataset(
         train_files,
         args.size,
@@ -165,6 +177,9 @@ def main():
         os.path.join(args.output, "train"),
         args.include_constants,
         args.cross_circuit_pairs,
+        args.n_per_pair,
+        args.n_augmented,
+        args.n_mutation,
         device
     )
     if val_files:
@@ -176,6 +191,9 @@ def main():
             os.path.join(args.output, "val"),
             args.include_constants,
             args.cross_circuit_pairs,
+            1,
+            0,
+                0,
             device
         )
 

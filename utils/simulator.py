@@ -50,14 +50,13 @@ class Simulator:
         else:
             return values[g.mask_nodes_output()]
 
-    def compare(self, g1, g2):
+    def compare(self, g1, g2, node_pairs=None):
         assert g1.n_inputs == g2.n_inputs, "Graphs must have the same number of inputs"
-        assert g1.n_outputs == 1 and g2.n_outputs == 1, "Graphs must have exactly one output"
         inputs = self._generate_random_inputs(g1.n_inputs)
 
-        v1 = self.evaluate(g1, inputs)
-        v2 = self.evaluate(g2, inputs)
-        return torch.sum(v1[0] == v2[0]).item() / float(self.n_steps)
+        v1 = self.evaluate(g1, inputs, output_inner_nodes=True)
+        v2 = self.evaluate(g2, inputs, output_inner_nodes=True)
+        return torch.sum(v1[node_pairs[:, 0]] == v2[node_pairs[:, 1]], dim=-1) / float(self.n_steps)
 
     def satisfy_probability(self, graph):
         inputs = self._generate_random_inputs(graph.n_inputs)

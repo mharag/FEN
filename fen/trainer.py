@@ -48,20 +48,22 @@ class Trainer:
         self.model = model.to(self.device)
 
     def run_sample(self, sample):
-        g1, g2, sim = sample
+        g1, g2, node_pairs, sim = sample
         g1_embd = self.model(g1.to(self.device))
         g2_embd = self.model(g2.to(self.device))
-        g1_output = g1_embd[g1.outputs]
-        g2_output = g2_embd[g2.outputs]
-        emb_sim = self.model.similarity(g1_output, g2_output)
-        func_loss = self.reg_loss(emb_sim, torch.tensor([sim], device=self.device)) * 10
+        node_pairs = node_pairs.to(self.device)
+        sim = sim.to(self.device)
+        emb_sim = self.model.similarity(g1_embd[node_pairs[:, 0]], g2_embd[node_pairs[:, 1]])
+        func_loss = self.reg_loss(emb_sim, sim) / sim.shape[0]
+        error = torch.abs(emb_sim - sim).mean().item()
 
-        return emb_sim.item(), func_loss
+        return emb_sim.mean().item(), func_loss, error
 
     def train(self, num_epoch, train_dataset, val_dataset):
         # AverageMeter
         batch_time = AverageMeter()
         loss_meter = AverageMeter()
+        error_meter = AverageMeter()
 
         # Train
         print('[INFO] Start training, lr = {:.4f}'.format(self.optimizer.param_groups[0]['lr']))
@@ -80,18 +82,20 @@ class Trainer:
                 bar = Bar(f"{phase} {epoch}/{num_epoch}", max=len(dataset))
                 for iter_id, sample in enumerate(dataset):
                     time_stamp = time.time()
-                    pred, loss = self.run_sample(sample)
+                    pred, loss, error = self.run_sample(sample)
                     if phase == 'train':
                         self.optimizer.zero_grad()
                         loss.backward()
                         self.optimizer.step()
                     batch_time.update(time.time() - time_stamp)
                     loss_meter.update(loss.item())
-                    Bar.suffix = f"[{iter_id}/{len(dataset)}]|Tot: {bar.elapsed_td:} |ETA: {bar.eta_td:} | Loss: {loss_meter.avg:.4f} | Mean error est.: {sqrt(loss_meter.avg/10):.4f} | Pred: {pred:.4f} | Net: {batch_time.avg:.2f}s"
+                    error_meter.update(error)
+                    Bar.suffix = f"[{iter_id}/{len(dataset)}]|Tot: {bar.elapsed_td:} |ETA: {bar.eta_td:} | Loss: {loss_meter.avg:.4f} | Mean error est.: {error_meter.avg:.4f} | Pred: {pred:.4f} | Net: {batch_time.avg:.2f}s"
                     bar.next()
                 bar.finish()
                 loss_meter.reset()
                 batch_time.reset()
+                error_meter.reset()
             save_path = os.path.join(self.save_dir, f"model_{epoch}.pth")
             self.save(save_path)
 
