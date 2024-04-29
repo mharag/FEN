@@ -32,13 +32,8 @@ def generate_pairs(circuits, size, samples, cross_circuit_pairs):
             c2 = c1
 
         # generate sub-graphs of random size from interval <size/2, size>
-        sizes = []
-        for c in [c1, c2]:
-            lower_bound = c.n_inputs + 1
-            upper_bound = min(size, c.n_nodes)
-            sizes.append(torch.randint(lower_bound, upper_bound, (1,)).item())
-        s1 = c1.subgraph(sizes[0])
-        s2 = c2.subgraph(sizes[1])
+        s1 = c1.subgraph(size)
+        s2 = c2.subgraph(size)
 
         # set output to the last node in graph
         s1.set_outputs(torch.tensor([s1.n_nodes-1]))
@@ -93,6 +88,16 @@ def add_metadata(samples, output, files, steps):
         json.dump(stats, f, indent=4)
 
 
+def augment_circuits(circuits, n_augmented, n_mutation):
+    augmented_ciruits = []
+    for c in circuits:
+        augmented_ciruits.append(c)
+        for i in range(n_augmented):
+            mutated_circuit = c.mutate(n_mutation)
+            augmented_ciruits.append(mutated_circuit)
+    return augmented_ciruits
+
+
 def create_dataset(
     files: list[str],
     size: int,
@@ -113,6 +118,10 @@ def create_dataset(
     circuits = load_circuits(files, include_constants)
     simulator = Simulator(steps, include_constants=include_constants, device=device)
     aig_translator = AIGTranslator()
+
+    print(f"Number of circuits before augmentation: {len(circuits)}")
+    circuits = augment_circuits(circuits, n_augmented, n_mutation)
+    print(f"Number of circuits after augmentation: {len(circuits)}")
 
     pairs = generate_pairs(circuits, size, samples, cross_circuit_pairs)
 

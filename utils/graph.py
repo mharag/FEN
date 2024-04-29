@@ -107,6 +107,13 @@ class Graph:
 
         )
 
+    def mutate(self, n_mutations):
+        new_edges = self.edges.clone()
+        for i in range(n_mutations):
+            idx = torch.randint(0, len(new_edges), (1,))
+            new_edges[idx, 0] = torch.randint(0, new_edges[idx, 1], (1,))
+        return Graph(self.nodes.clone(), new_edges, self.outputs.clone())
+
     def set_outputs(self, outputs):
         self.outputs = outputs
         self.n_outputs = len(outputs)
