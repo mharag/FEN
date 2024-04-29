@@ -2,6 +2,8 @@ import torch
 from torch import nn
 import time
 from progress.bar import Bar
+from math import sqrt
+import os
 
 
 class AverageMeter(object):
@@ -29,12 +31,17 @@ class Trainer:
         model,
         training_id='default',
         save_dir='./exp',
-        lr=3e-5,
+        lr=1e-5,
         use_cuda=True,
     ):
         super(Trainer, self).__init__()
         self.device = torch.device("cuda" if use_cuda and torch.cuda.is_available() else "cpu")
         self.lr = lr
+
+        self.training_id = training_id
+        self.save_dir = os.path.join(save_dir, training_id)
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
 
         self.reg_loss = nn.MSELoss().to(self.device)
         self.optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
@@ -46,10 +53,10 @@ class Trainer:
         g2_embd = self.model(g2.to(self.device))
         g1_output = g1_embd[g1.outputs]
         g2_output = g2_embd[g2.outputs]
-        emb_dis = (torch.cosine_similarity(g1_output, g2_output, eps=1e-8) + 1) / 2
-        func_loss = self.reg_loss(emb_dis, torch.tensor([sim], device=self.device)) * 10
+        emb_sim = self.model.similarity(g1_output, g2_output)
+        func_loss = self.reg_loss(emb_sim, torch.tensor([sim], device=self.device)) * 10
 
-        return func_loss
+        return emb_sim.item(), func_loss
 
     def train(self, num_epoch, train_dataset, val_dataset):
         # AverageMeter
@@ -61,8 +68,8 @@ class Trainer:
         for epoch in range(1, num_epoch+1):
             self.setup_params(epoch)
 
-            for phase in ['train']:
-                if phase == 'train':
+            for phase in ["train", "val"]:
+                if phase == "train":
                     dataset = train_dataset
                     self.model.train()
                 else:
@@ -73,16 +80,20 @@ class Trainer:
                 bar = Bar(f"{phase} {epoch}/{num_epoch}", max=len(dataset))
                 for iter_id, sample in enumerate(dataset):
                     time_stamp = time.time()
-                    loss = self.run_sample(sample)
+                    pred, loss = self.run_sample(sample)
                     if phase == 'train':
                         self.optimizer.zero_grad()
                         loss.backward()
                         self.optimizer.step()
                     batch_time.update(time.time() - time_stamp)
                     loss_meter.update(loss.item())
-                    Bar.suffix = f"[{iter_id}/{len(dataset)}]|Tot: {bar.elapsed_td:} |ETA: {bar.eta_td:} | Loss: {loss_meter.avg:.4f} | Net: {batch_time.avg:.2f}s"
+                    Bar.suffix = f"[{iter_id}/{len(dataset)}]|Tot: {bar.elapsed_td:} |ETA: {bar.eta_td:} | Loss: {loss_meter.avg:.4f} | Mean error est.: {sqrt(loss_meter.avg/10):.4f} | Pred: {pred:.4f} | Net: {batch_time.avg:.2f}s"
                     bar.next()
                 bar.finish()
+                loss_meter.reset()
+                batch_time.reset()
+            save_path = os.path.join(self.save_dir, f"model_{epoch}.pth")
+            self.save(save_path)
 
     def save(self, path):
         data = {

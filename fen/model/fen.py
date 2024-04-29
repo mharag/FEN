@@ -9,6 +9,7 @@ from fen.model.mlp import MLP
 from torch_geometric.data import Data
 
 
+
 class GraphData(Data):
     def __init__(self, nodes, x_edges, y_edges, outputs):
         super().__init__()
@@ -39,7 +40,7 @@ class FEN(nn.Module):
     def __init__(
         self,
         n_embd = 256,
-        n_layers = 10,
+        n_layers = 4,
         n_inputs = 66,
     ):
         super(FEN, self).__init__()
@@ -47,10 +48,10 @@ class FEN(nn.Module):
         self.n_embd = n_embd
         self.mlp = MLP(
             n_in=2 * n_embd,
-            n_hidden=n_embd * 4,
+            n_hidden=n_embd * 6,
             n_out=n_embd,
             n_layers=n_layers,
-            p_dropout=0.05,
+            p_dropout=0.10,
         )
 
         self.input_embd = nn.Embedding(n_inputs, self.n_embd)
@@ -99,6 +100,10 @@ class FEN(nn.Module):
             ready = x_ready & y_ready & ~done
 
         return node_embd
+
+    @staticmethod
+    def similarity(embd1, embd2):
+        return (torch.cosine_similarity(embd1, embd2, eps=1e-8) + 1) / 2
 
     def load(self, path):
         self.load_state_dict(torch.load(path)["state_dict"])
