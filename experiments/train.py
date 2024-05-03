@@ -6,16 +6,17 @@ from fen.trainer import Trainer
 num_epochs = 20
 
 def main():
-    train_dataset = CGPDataset("datasets/ariths_gen_test/train")
-    val_dataset = CGPDataset("datasets/ariths_gen_test/val")
+    train_dataset = CGPDataset("datasets/ariths_gen_100_high_prec_augmented/train")
+    val_dataset = CGPDataset("datasets/ariths_gen_100_high_prec_augmented/val")
 
 
     print('[INFO] Create Model and Trainer')
     model = FEN()
-    #model.load("./exp/size_200_2/model_7.pth")
+    model.load("./exp/augmented1/model_15.pth")
     print(f'[INFO] Model created parameters: {model.n_param()}')
 
-    trainer = Trainer(model, training_id="size_200_3", lr=5e-6)
+    trainer = Trainer(model, training_id="augmented2", lr=5e-3)
+
     print('[INFO] Training ...')
     trainer.train(num_epochs, train_dataset, val_dataset)
 

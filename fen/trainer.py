@@ -54,7 +54,7 @@ class Trainer:
         node_pairs = node_pairs.to(self.device)
         sim = sim.to(self.device)
         emb_sim = self.model.similarity(g1_embd[node_pairs[:, 0]], g2_embd[node_pairs[:, 1]])
-        func_loss = self.reg_loss(emb_sim, sim) / sim.shape[0]
+        func_loss = self.reg_loss(emb_sim, sim)
         error = torch.abs(emb_sim - sim).mean().item()
 
         return emb_sim.mean().item(), func_loss, error
