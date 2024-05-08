@@ -66,10 +66,8 @@ compare it with FEN.
 | Model | Mean absolute error | Inference time | Size | Epochs |
 | --- |---------------------| --- |------|--------|
 | FEN | 1.99%               | 0.1s | 5.9M | 40     |
-| DeepGate | 4.65%               | 0.1s | 0.6M | 6      |
+| DeepGate | 4.11%               | 0.1s | 0.6M | 28     |
 | FEN | 2.11%               | 0.1s | 1.4M | 24     |
-
-**!!!!!!!!!!!!!!!!!!! Results for DeepGate will be updated after training is done :)**
 
 
 #### Random dataset ####
@@ -83,7 +81,7 @@ More about the dataset used in the experiments can be found in the `Datasets` se
 | --- |---------------------|------|
 | FEN | 6.65%               | 5.9M |
 | FEN | 6.74%               | 1.4M |
-| DeepGate | 9.51%               | 0.6M |
+| DeepGate | 8.36%               | 0.6M |
 
 
 #### Bigger circuits ####
@@ -93,7 +91,7 @@ Models were tested on bigger circuits of size 500, without any additional traini
 | --- |---------------------|------|
 | FEN | 4.95%               | 5.9M |
 | FEN | 5.20%               | 1.4M |
-| DeepGate | 4.64%               | 0.6M |
+| DeepGate | 4.63%               | 0.6M |
 
 
 ### Datasets ###
